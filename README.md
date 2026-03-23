@@ -1,0 +1,19 @@
+# web-tc24r
+
+Web UI for the [Tiny COR24 in Rust](https://github.com/sw-vibe-coding/tc24r) compiler. Live browser demos using Rust, Yew, and WebAssembly.
+
+Compile, assemble, and run COR24 programs entirely in the browser.
+
+## Related
+
+- [tc24r](https://github.com/sw-vibe-coding/tc24r) -- The compiler
+- [cor24-rs](https://github.com/sw-embed/cor24-rs) -- COR24 assembler and emulator
+- [tml24c](https://github.com/sw-vibe-coding/tml24c) -- Tiny Macro Lisp for COR24
+
+## Status
+
+Project scaffolding. Development managed by [AgentRail](https://github.com/sw-vibe-coding/agentrail-rs).
+
+## License
+
+MIT
