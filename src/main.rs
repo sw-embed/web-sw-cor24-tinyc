@@ -1,8 +1,10 @@
 mod compiler;
+mod editor;
+mod highlight;
 
-use wasm_bindgen::JsCast;
-use web_sys::HtmlTextAreaElement;
 use yew::prelude::*;
+
+use editor::Editor;
 
 const DEFAULT_SOURCE: &str = r#"// COR24 C — UART hello + LED
 void putc(int c) {
@@ -28,14 +30,10 @@ fn app() -> Html {
     let assembly = use_state(String::new);
     let output = use_state(String::new);
 
-    let on_input = {
+    let on_source_change = {
         let source = source.clone();
-        Callback::from(move |e: InputEvent| {
-            if let Some(target) = e.target()
-                && let Ok(textarea) = target.dyn_into::<HtmlTextAreaElement>()
-            {
-                source.set(textarea.value());
-            }
+        Callback::from(move |value: String| {
+            source.set(value);
         })
     };
 
@@ -63,14 +61,7 @@ fn app() -> Html {
                 // C source editor
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
                     <label style="font-size:0.85rem; color:#a6adc8;">{"C Source"}</label>
-                    <textarea
-                        value={(*source).clone()}
-                        oninput={on_input}
-                        spellcheck="false"
-                        style="flex:1; background:#181825; color:#cdd6f4; border:1px solid #313244; \
-                               border-radius:6px; padding:12px; font-family:monospace; font-size:14px; \
-                               resize:none; outline:none;"
-                    />
+                    <Editor value={AttrValue::from((*source).clone())} on_change={on_source_change} />
                 </div>
 
                 // Generated assembly
