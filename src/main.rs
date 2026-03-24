@@ -549,11 +549,15 @@ fn app() -> Html {
                             <div style="margin-bottom:8px;">
                                 <div style="color:#f38ba8; font-weight:600; font-size:0.8rem; margin-bottom:2px;">
                                     { match err.source {
-                                        compiler::ErrorSource::C => "C error",
-                                        compiler::ErrorSource::Assembler => "Assembler error",
+                                        compiler::ErrorSource::C => "C error".to_string(),
+                                        compiler::ErrorSource::Header => {
+                                            format!("Header error ({})",
+                                                err.header.unwrap_or("unknown"))
+                                        }
+                                        compiler::ErrorSource::Assembler => "Assembler error".to_string(),
                                     }}
                                     if let Some(line) = err.line {
-                                        {format!(" (line {line})")}
+                                        {format!(" line {line}")}
                                     }
                                 </div>
                                 <pre style="color:#f38ba8; margin:0; white-space:pre-wrap; font-size:0.8rem;">

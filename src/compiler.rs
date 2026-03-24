@@ -5,14 +5,17 @@ use cor24_emulator::{AssembledLine, Assembler};
 #[derive(Clone, Copy, PartialEq)]
 pub enum ErrorSource {
     C,
+    Header,
     Assembler,
 }
 
 pub struct CompileError {
     pub message: String,
     pub source: ErrorSource,
-    /// 1-based line number in the relevant source (C or assembly).
+    /// 1-based line number in the relevant source (C, header, or assembly).
     pub line: Option<usize>,
+    /// Header filename if the error is in a header.
+    pub header: Option<&'static str>,
 }
 
 pub struct CompileOutput {
@@ -49,16 +52,33 @@ pub const HEADERS: &[(&str, &str)] = &[
     ("stdbool.h", include_str!("../../tc24r/include/stdbool.h")),
 ];
 
-/// Expand `#include <...>` and `#include "..."` directives using bundled headers.
-fn expand_includes(source: &str) -> String {
-    let mut included = std::collections::HashSet::new();
-    let mut output = String::with_capacity(source.len() * 2);
-    expand_includes_inner(source, &mut included, &mut output);
-    output
+/// Source map entry: which file and local line number each expanded line came from.
+#[derive(Clone, Copy)]
+struct SourceLoc {
+    /// "C" for user source, or a header filename like "stdio.h".
+    file: &'static str,
+    /// 1-based line number within that file.
+    line: usize,
 }
 
-fn expand_includes_inner(source: &str, included: &mut std::collections::HashSet<&'static str>, output: &mut String) {
-    for line in source.lines() {
+/// Expand `#include <...>` and `#include "..."` directives using bundled headers.
+/// Returns the expanded text and a source map (one entry per expanded line).
+fn expand_includes(source: &str) -> (String, Vec<SourceLoc>) {
+    let mut included = std::collections::HashSet::new();
+    let mut output = String::with_capacity(source.len() * 2);
+    let mut source_map = Vec::new();
+    expand_includes_inner(source, "C", &mut included, &mut output, &mut source_map);
+    (output, source_map)
+}
+
+fn expand_includes_inner(
+    source: &str,
+    file: &'static str,
+    included: &mut std::collections::HashSet<&'static str>,
+    output: &mut String,
+    source_map: &mut Vec<SourceLoc>,
+) {
+    for (i, line) in source.lines().enumerate() {
         let trimmed = line.trim();
         if let Some(name) = parse_include(trimmed) {
             if let Some((key, content)) = HEADERS.iter().find(|(k, _)| *k == name)
@@ -67,11 +87,12 @@ fn expand_includes_inner(source: &str, included: &mut std::collections::HashSet<
                 if content.lines().any(|l| l.trim() == "#pragma once") {
                     included.insert(key);
                 }
-                expand_includes_inner(content, included, output);
+                expand_includes_inner(content, key, included, output, source_map);
             }
         } else {
             output.push_str(line);
             output.push('\n');
+            source_map.push(SourceLoc { file, line: i + 1 });
         }
     }
 }
@@ -87,22 +108,45 @@ fn parse_include(line: &str) -> Option<&str> {
     }
 }
 
+/// Resolve an expanded-source line number to the original file and local line.
+fn resolve_location(source_map: &[SourceLoc], expanded_line: usize) -> SourceLoc {
+    let idx = expanded_line.saturating_sub(1);
+    if idx < source_map.len() {
+        source_map[idx]
+    } else {
+        SourceLoc { file: "C", line: expanded_line }
+    }
+}
+
 /// Compile C source to COR24 machine code. Does not execute.
 pub fn compile(source: &str) -> CompileOutput {
-    let expanded = expand_includes(source);
+    let (expanded, source_map) = expand_includes(source);
     let preprocessed = tc24r_preprocess::preprocess(&expanded, None, &[]);
 
-    let c_err = |msg: String, line: Option<usize>| CompileOutput {
-        listing: Vec::new(),
-        bytes: Vec::new(),
-        error: Some(CompileError { message: msg, source: ErrorSource::C, line }),
+    let make_error = |msg: String, expanded_line: Option<usize>| -> CompileOutput {
+        let (error_source, line, header) = match expanded_line {
+            Some(el) => {
+                let loc = resolve_location(&source_map, el);
+                if loc.file == "C" {
+                    (ErrorSource::C, Some(loc.line), None)
+                } else {
+                    (ErrorSource::Header, Some(loc.line), Some(loc.file))
+                }
+            }
+            None => (ErrorSource::C, None, None),
+        };
+        CompileOutput {
+            listing: Vec::new(),
+            bytes: Vec::new(),
+            error: Some(CompileError { message: msg, source: error_source, line, header }),
+        }
     };
 
     let tokens = match tc24r_lexer::Lexer::new(&preprocessed).tokenize() {
         Ok(t) => t,
         Err(e) => {
             let line = e.span.as_ref().map(|s| offset_to_line(&preprocessed, s.offset));
-            return c_err(e.message.clone(), line);
+            return make_error(e.message.clone(), line);
         }
     };
 
@@ -110,7 +154,7 @@ pub fn compile(source: &str) -> CompileOutput {
         Ok(p) => p,
         Err(e) => {
             let line = e.span.as_ref().map(|s| offset_to_line(&preprocessed, s.offset));
-            return c_err(e.message.clone(), line);
+            return make_error(e.message.clone(), line);
         }
     };
 
@@ -132,6 +176,7 @@ pub fn compile(source: &str) -> CompileOutput {
                 message: result.errors.join("\n"),
                 source: ErrorSource::Assembler,
                 line,
+                header: None,
             }),
         };
     }
