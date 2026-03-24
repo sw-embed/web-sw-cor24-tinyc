@@ -518,7 +518,7 @@ fn app() -> Html {
 
             <h1 style="font-size:1.4rem; color:#89b4fa;">
                 {"web-tc24r"}
-                <span style="font-size:0.8rem; color:#6c7086; margin-left:8px;">
+                <span style="font-size:0.8rem; color:#9399b2; margin-left:8px;">
                     {"COR24 compiler in your browser"}
                 </span>
             </h1>
@@ -568,7 +568,7 @@ fn app() -> Html {
 
                         // UART terminal (focusable for keyboard input)
                         <div style="flex:1; min-height:80px;">
-                            <div style="color:#6c7086; font-size:0.7rem; margin-bottom:2px;">
+                            <div style="color:#9399b2; font-size:0.7rem; margin-bottom:2px;">
                                 {"UART"}
                                 if *running {
                                     <span style="color:#a6adc8;">{" (type here for input)"}</span>
@@ -581,7 +581,7 @@ fn app() -> Html {
                                        outline:none; cursor:text; \
                                        border:1px solid transparent;">
                                 { if uart_output.is_empty() && !*running && !*halted {
-                                    html! { <span style="color:#45475a;">{"(no output)"}</span> }
+                                    html! { <span style="color:#7f849c;">{"(no output)"}</span> }
                                 } else {
                                     html! { {&*uart_output} }
                                 }}
@@ -590,26 +590,26 @@ fn app() -> Html {
 
                         // Registers
                         <div>
-                            <div style="color:#6c7086; font-size:0.7rem; margin-bottom:4px;">{"Registers"}</div>
+                            <div style="color:#9399b2; font-size:0.7rem; margin-bottom:4px;">{"Registers"}</div>
                             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; \
                                         font-family:monospace; font-size:12px;">
                                 { for (0..8).map(|i| {
                                     html! {
                                         <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
                                                     display:flex; justify-content:space-between;">
-                                            <span style="color:#6c7086;">{REG_NAMES[i]}</span>
+                                            <span style="color:#9399b2;">{REG_NAMES[i]}</span>
                                             <span style="color:#89b4fa;">{format!("{:06x}", registers[i])}</span>
                                         </div>
                                     }
                                 }) }
                                 <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
                                             display:flex; justify-content:space-between;">
-                                    <span style="color:#6c7086;">{"pc"}</span>
+                                    <span style="color:#9399b2;">{"pc"}</span>
                                     <span style="color:#cba6f7;">{format!("{:06x}", *pc_val)}</span>
                                 </div>
                                 <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
                                             display:flex; justify-content:space-between;">
-                                    <span style="color:#6c7086;">{"c"}</span>
+                                    <span style="color:#9399b2;">{"c"}</span>
                                     <span style="color:#f9e2af;">{ if *cond_flag { "1" } else { "0" } }</span>
                                 </div>
                             </div>
@@ -619,21 +619,21 @@ fn app() -> Html {
                         <div style="display:flex; gap:16px; align-items:center;">
                             // LED D2
                             <div style="display:flex; align-items:center; gap:6px;">
-                                <span style="color:#6c7086; font-size:0.7rem;">{"LED D2"}</span>
+                                <span style="color:#9399b2; font-size:0.7rem;">{"LED D2"}</span>
                                 <div style={format!("width:14px; height:14px; border-radius:50%; \
-                                    background:{}; border:1px solid #45475a;",
+                                    background:{}; border:1px solid #585b70;",
                                     if *led_state & 1 == 0 { "#a6e3a1" } else { "#313244" }
                                 )} />
                             </div>
                             // Switch S2
                             <div style="display:flex; align-items:center; gap:6px;">
-                                <span style="color:#6c7086; font-size:0.7rem;">{"S2"}</span>
+                                <span style="color:#9399b2; font-size:0.7rem;">{"S2"}</span>
                                 <button onclick={on_switch_toggle}
                                     style={format!("padding:2px 10px; border-radius:4px; font-size:0.7rem; \
-                                        cursor:pointer; border:1px solid #45475a; \
+                                        cursor:pointer; border:1px solid #585b70; \
                                         background:{}; color:{};",
                                         if *switch_pressed { "#a6e3a1" } else { "#313244" },
-                                        if *switch_pressed { "#1e1e2e" } else { "#6c7086" },
+                                        if *switch_pressed { "#1e1e2e" } else { "#9399b2" },
                                     )}>
                                     { if *switch_pressed { "ON" } else { "OFF" } }
                                 </button>
@@ -642,7 +642,7 @@ fn app() -> Html {
 
                         // Status bar
                         <div style="display:flex; justify-content:space-between; align-items:center; \
-                                    font-size:0.7rem; color:#6c7086; border-top:1px solid #313244; \
+                                    font-size:0.7rem; color:#9399b2; border-top:1px solid #313244; \
                                     padding-top:6px;">
                             <span>{&*status_msg}</span>
                             <span>{format!("{} instructions", *instr_count)}</span>
@@ -668,7 +668,7 @@ fn app() -> Html {
                 }
 
                 <select onchange={on_demo_select}
-                    style="padding:6px 12px; background:#313244; color:#cdd6f4; border:1px solid #45475a; \
+                    style="padding:6px 12px; background:#313244; color:#cdd6f4; border:1px solid #585b70; \
                            border-radius:6px; font-size:0.85rem; cursor:pointer;">
                     <option value="" selected=true disabled=true>
                         { if *loading { "Loading..." } else { "Load demo..." } }
@@ -688,7 +688,7 @@ fn app() -> Html {
 
             // Bundled headers (collapsible)
             <details style="font-size:0.8rem;">
-                <summary style="color:#6c7086; cursor:pointer; user-select:none;">
+                <summary style="color:#9399b2; cursor:pointer; user-select:none;">
                     {"Bundled headers (stdio.h, stdlib.h, string.h, cor24.h, stdbool.h)"}
                 </summary>
                 <div style="display:flex; gap:8px; margin-top:8px; max-height:300px; overflow:auto;">
@@ -711,10 +711,20 @@ fn app() -> Html {
             </details>
 
             // Footer
-            <div style="display:flex; justify-content:space-between; font-size:0.65rem; \
-                        color:#45475a; padding-top:4px;">
-                <span>{"\u{00a9} 2026 Michael A. Wright \u{2022} MIT License"}</span>
-                <span>{format!("{} {} {}", env!("BUILD_SHA"), env!("BUILD_HOST"), env!("BUILD_TIMESTAMP"))}</span>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; \
+                        font-size:0.65rem; color:#9399b2; padding-top:4px;">
+                <span>{"\u{00a9} 2026 Michael A. Wright"}</span>
+                <span>{"\u{00b7}"}</span>
+                <span>{"MIT License"}</span>
+                <span>{"\u{00b7}"}</span>
+                <a href="https://makerlisp.com" target="_blank"
+                    style="color:#89b4fa; text-decoration:none;">{"COR24-TB"}</a>
+                <span>{"\u{00b7}"}</span>
+                <span>{env!("BUILD_SHA")}</span>
+                <span>{"\u{00b7}"}</span>
+                <span>{env!("BUILD_HOST")}</span>
+                <span>{"\u{00b7}"}</span>
+                <span>{env!("BUILD_TIMESTAMP")}</span>
             </div>
         </main>
     }
@@ -744,7 +754,7 @@ fn render_listing(listing: &[AssembledLine], error_line: Option<usize>) -> Html 
         <div style="flex:1; display:flex; background:#181825; border:1px solid #313244; \
                     border-radius:6px; overflow:auto; font-family:monospace; font-size:13px; \
                     line-height:1.5;">
-            <pre style="margin:0; padding:12px 8px 12px 0; text-align:right; color:#6c7086; \
+            <pre style="margin:0; padding:12px 8px 12px 0; text-align:right; color:#9399b2; \
                         user-select:none; background:#11111b; border-right:1px solid #313244; \
                         white-space:pre;">
                 { for listing.iter().enumerate().map(|(i, _)| {
@@ -768,8 +778,8 @@ fn render_listing(listing: &[AssembledLine], error_line: Option<usize>) -> Html 
                         let hex_end = hex_start + 14;
                         html! {
                             <div style={bg.to_string()}>
-                                <span style="color:#6c7086;">{&formatted[..addr_end]}</span>
-                                <span style="color:#6c7086;">{&formatted[addr_end..hex_start]}</span>
+                                <span style="color:#9399b2;">{&formatted[..addr_end]}</span>
+                                <span style="color:#9399b2;">{&formatted[addr_end..hex_start]}</span>
                                 <span style="color:#a6e3a1;">{&formatted[hex_start..hex_end.min(formatted.len())]}</span>
                                 if formatted.len() > hex_end {
                                     <span style="color:#f9e2af;">{&formatted[hex_end..]}</span>

@@ -86,7 +86,7 @@ pub fn editor(props: &EditorProps) -> Html {
         "width: {gutter_width}; \
          min-width: {gutter_width}; \
          background: #11111b; \
-         color: #6c7086; \
+         color: #9399b2; \
          font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; \
          font-size: 14px; \
          line-height: 1.5; \

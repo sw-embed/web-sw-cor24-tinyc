@@ -6,7 +6,7 @@ Compile, assemble, and run COR24 programs entirely in the browser.
 
 **[Live Demo](https://sw-vibe-coding.github.io/web-tc24r/)**
 
-![web-tc24r screenshot](images/screenshot.png?ts=1774323868452)
+![web-tc24r screenshot](images/screenshot.png?ts=1774325477861)
 
 ## Related
 
