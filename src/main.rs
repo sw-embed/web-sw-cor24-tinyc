@@ -2,8 +2,12 @@ mod compiler;
 mod editor;
 mod highlight;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use cor24_emulator::{AssembledLine, EmulatorCore};
 use wasm_bindgen::JsCast;
-use web_sys::HtmlSelectElement;
+use web_sys::{HtmlSelectElement, KeyboardEvent};
 use yew::prelude::*;
 
 use editor::Editor;
@@ -77,46 +81,232 @@ const DEMOS: &[(&str, &str)] = &[
 const RAW_BASE: &str =
     "https://raw.githubusercontent.com/sw-vibe-coding/tc24r/main/demos/";
 
+const REG_NAMES: [&str; 8] = ["r0", "r1", "r2", "fp", "sp", "z", "iv", "ir"];
+
 #[function_component(App)]
 fn app() -> Html {
     let source = use_state(|| DEFAULT_SOURCE.to_string());
-    let result = use_state(|| None::<compiler::CompileResult>);
+
+    // Compilation state
+    let listing = use_state(Vec::<AssembledLine>::new);
+    let compile_error = use_state(|| None::<compiler::CompileError>);
+
+    // Emulator (mutable ref, survives re-renders)
+    let emu: Rc<RefCell<EmulatorCore>> = use_mut_ref(EmulatorCore::new);
+
+    // Emulator display state (updated each tick)
+    let uart_output = use_state(String::new);
+    let registers = use_state(|| [0u32; 8]);
+    let pc_val = use_state(|| 0u32);
+    let cond_flag = use_state(|| false);
+    let led_state = use_state(|| 0u8);
+    let running = use_state(|| false);
+    let halted = use_state(|| false);
+    let instr_count = use_state(|| 0u64);
+    let status_msg = use_state(|| String::from("Ready"));
+    let runtime_error_line = use_state(|| None::<usize>);
+
+    // Switch S2
+    let switch_pressed = use_state(|| false);
+
+    // Interval handle
+    let interval_handle = use_mut_ref(|| None::<gloo_timers::callback::Interval>);
+
+    // Loading demo
+    let loading = use_state(|| false);
+
+    // --- Callbacks ---
 
     let on_source_change = {
         let source = source.clone();
-        Callback::from(move |value: String| {
-            source.set(value);
-        })
+        Callback::from(move |value: String| source.set(value))
     };
 
     let on_run = {
         let source = source.clone();
-        let result = result.clone();
+        let listing = listing.clone();
+        let compile_error = compile_error.clone();
+        let emu = emu.clone();
+        let uart_output = uart_output.clone();
+        let registers = registers.clone();
+        let pc_val = pc_val.clone();
+        let cond_flag = cond_flag.clone();
+        let led_state = led_state.clone();
+        let running = running.clone();
+        let halted = halted.clone();
+        let instr_count = instr_count.clone();
+        let status_msg = status_msg.clone();
+        let runtime_error_line = runtime_error_line.clone();
+        let interval_handle = interval_handle.clone();
+        let switch_pressed = switch_pressed.clone();
+
         Callback::from(move |_: MouseEvent| {
-            result.set(Some(compiler::compile_and_run(&source)));
+            // Stop any existing run loop
+            *interval_handle.borrow_mut() = None;
+
+            // Compile
+            let output = compiler::compile(&source);
+            listing.set(output.listing.clone());
+            runtime_error_line.set(None);
+
+            if let Some(err) = output.error {
+                compile_error.set(Some(err));
+                running.set(false);
+                halted.set(false);
+                status_msg.set("Compile error".into());
+                return;
+            }
+            compile_error.set(None);
+
+            // Reset emulator and load binary
+            {
+                let mut e = emu.borrow_mut();
+                *e = EmulatorCore::new();
+                e.load_program(0, &output.bytes);
+                e.load_program_extent(output.bytes.len() as u32);
+                e.set_button_pressed(*switch_pressed);
+                e.resume();
+            }
+
+            // Reset display state
+            uart_output.set(String::new());
+            registers.set([0u32; 8]);
+            pc_val.set(0);
+            cond_flag.set(false);
+            led_state.set(0);
+            halted.set(false);
+            instr_count.set(0);
+            status_msg.set("Running".into());
+            running.set(true);
+
+            // Start run loop
+            let emu = emu.clone();
+            let uart_output = uart_output.clone();
+            let registers = registers.clone();
+            let pc_val = pc_val.clone();
+            let cond_flag = cond_flag.clone();
+            let led_state = led_state.clone();
+            let running = running.clone();
+            let halted = halted.clone();
+            let instr_count = instr_count.clone();
+            let status_msg = status_msg.clone();
+            let runtime_error_line = runtime_error_line.clone();
+            let listing = listing.clone();
+            let interval_handle2 = interval_handle.clone();
+
+            let interval = gloo_timers::callback::Interval::new(16, move || {
+                let mut e = emu.borrow_mut();
+                let batch = e.run_batch(10_000);
+
+                // Update display state
+                uart_output.set(e.get_uart_output().to_string());
+                let mut regs = [0u32; 8];
+                for (i, reg) in regs.iter_mut().enumerate() {
+                    *reg = e.get_reg(i as u8);
+                }
+                registers.set(regs);
+                pc_val.set(e.pc());
+                cond_flag.set(e.condition_flag());
+                led_state.set(e.get_led());
+                instr_count.set(e.instructions_count());
+
+                let stop = match batch.reason {
+                    cor24_emulator::StopReason::Halted => {
+                        halted.set(true);
+                        status_msg.set("Halted".into());
+                        true
+                    }
+                    cor24_emulator::StopReason::InvalidInstruction(op) => {
+                        let pc = e.pc();
+                        let line = compiler::pc_to_listing_line(&listing, pc);
+                        runtime_error_line.set(line);
+                        halted.set(true);
+                        status_msg.set(format!("Invalid instruction: {op:#04x} at PC={pc:#06x}"));
+                        true
+                    }
+                    cor24_emulator::StopReason::Paused => {
+                        status_msg.set("Paused".into());
+                        true
+                    }
+                    _ => false,
+                };
+
+                if stop {
+                    running.set(false);
+                    *interval_handle2.borrow_mut() = None;
+                }
+            });
+
+            *interval_handle.borrow_mut() = Some(interval);
         })
     };
 
-    let loading = use_state(|| false);
+    let on_stop = {
+        let emu = emu.clone();
+        let interval_handle = interval_handle.clone();
+        let running = running.clone();
+        let status_msg = status_msg.clone();
+        Callback::from(move |_: MouseEvent| {
+            emu.borrow_mut().pause();
+            *interval_handle.borrow_mut() = None;
+            running.set(false);
+            status_msg.set("Stopped".into());
+        })
+    };
+
+    let on_key = {
+        let emu = emu.clone();
+        Callback::from(move |e: KeyboardEvent| {
+            e.prevent_default();
+            let key = e.key();
+            let byte = if key.len() == 1 {
+                key.as_bytes()[0]
+            } else if key == "Enter" {
+                b'\n'
+            } else if key == "Backspace" {
+                0x08
+            } else {
+                return;
+            };
+            emu.borrow_mut().send_uart_byte(byte);
+        })
+    };
+
+    let on_switch_toggle = {
+        let switch_pressed = switch_pressed.clone();
+        let emu = emu.clone();
+        Callback::from(move |_: MouseEvent| {
+            let new_val = !*switch_pressed;
+            switch_pressed.set(new_val);
+            emu.borrow_mut().set_button_pressed(new_val);
+        })
+    };
 
     let on_demo_select = {
         let source = source.clone();
-        let result = result.clone();
+        let compile_error = compile_error.clone();
+        let listing = listing.clone();
+        let interval_handle = interval_handle.clone();
+        let running = running.clone();
+        let status_msg = status_msg.clone();
         let loading = loading.clone();
         Callback::from(move |e: Event| {
             let Some(select) = e.target().and_then(|t| t.dyn_into::<HtmlSelectElement>().ok()) else {
                 return;
             };
             let filename = select.value();
-            if filename.is_empty() {
-                return;
-            }
-            // Reset select to placeholder.
+            if filename.is_empty() { return; }
             select.set_value("");
+
+            // Stop any running emulator
+            *interval_handle.borrow_mut() = None;
+            running.set(false);
 
             let url = format!("{RAW_BASE}{filename}");
             let source = source.clone();
-            let result = result.clone();
+            let compile_error = compile_error.clone();
+            let listing = listing.clone();
+            let status_msg = status_msg.clone();
             let loading = loading.clone();
             loading.set(true);
             wasm_bindgen_futures::spawn_local(async move {
@@ -124,12 +314,13 @@ fn app() -> Html {
                     Ok(resp) if resp.ok() => {
                         if let Ok(text) = resp.text().await {
                             source.set(text);
-                            result.set(None);
+                            compile_error.set(None);
+                            listing.set(Vec::new());
+                            status_msg.set("Ready".into());
                         }
                     }
                     _ => {
                         source.set(format!("// Failed to fetch {filename}"));
-                        result.set(None);
                     }
                 }
                 loading.set(false);
@@ -137,17 +328,16 @@ fn app() -> Html {
         })
     };
 
-    // Extract error line for the appropriate panel.
-    let c_error_line = result.as_ref().and_then(|r| {
-        r.error.as_ref().filter(|e| e.source == compiler::ErrorSource::C).and_then(|e| e.line)
-    });
-    let asm_error_line = result.as_ref().and_then(|r| {
-        r.error.as_ref()
-            .filter(|e| e.source == compiler::ErrorSource::Assembler
-                     || e.source == compiler::ErrorSource::Runtime)
-            .and_then(|e| e.line)
-    });
+    // --- Error lines for highlighting ---
+    let c_error_line = compile_error.as_ref()
+        .filter(|e| e.source == compiler::ErrorSource::C)
+        .and_then(|e| e.line);
+    let asm_error_line = compile_error.as_ref()
+        .filter(|e| e.source == compiler::ErrorSource::Assembler)
+        .and_then(|e| e.line)
+        .or(*runtime_error_line);
 
+    // --- Render ---
     html! {
         <main style="display:flex; flex-direction:column; height:100vh; padding:16px; gap:12px;">
             <h1 style="font-size:1.4rem; color:#89b4fa;">
@@ -165,29 +355,137 @@ fn app() -> Html {
                             error_line={c_error_line} />
                 </div>
 
-                // Generated assembly
+                // Listing
                 <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:8px;">
                     <label style="font-size:0.85rem; color:#a6adc8;">{"Listing"}</label>
-                    { render_listing(result.as_ref().map(|r| r.listing.as_slice()).unwrap_or(&[]), asm_error_line) }
+                    { render_listing(&listing, asm_error_line) }
                 </div>
 
-                // Execution output
+                // Emulator panel
                 <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:8px;">
-                    <label style="font-size:0.85rem; color:#a6adc8;">{"Output"}</label>
-                    <div style="flex:1; background:#181825; border:1px solid #313244; \
-                                border-radius:6px; padding:12px; font-family:monospace; font-size:14px; \
-                                overflow:auto;">
-                        { render_output(result.as_ref()) }
+                    <label style="font-size:0.85rem; color:#a6adc8;">{"Emulator"}</label>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:8px; \
+                                background:#181825; border:1px solid #313244; border-radius:6px; \
+                                padding:12px; overflow:auto;">
+
+                        // Compile error
+                        if let Some(err) = compile_error.as_ref() {
+                            <div style="margin-bottom:8px;">
+                                <div style="color:#f38ba8; font-weight:600; font-size:0.8rem; margin-bottom:2px;">
+                                    { match err.source {
+                                        compiler::ErrorSource::C => "C error",
+                                        compiler::ErrorSource::Assembler => "Assembler error",
+                                    }}
+                                    if let Some(line) = err.line {
+                                        {format!(" (line {line})")}
+                                    }
+                                </div>
+                                <pre style="color:#f38ba8; margin:0; white-space:pre-wrap; font-size:0.8rem;">
+                                    {&err.message}
+                                </pre>
+                            </div>
+                        }
+
+                        // UART terminal (focusable for keyboard input)
+                        <div style="flex:1; min-height:80px;">
+                            <div style="color:#6c7086; font-size:0.7rem; margin-bottom:2px;">
+                                {"UART"}
+                                if *running {
+                                    <span style="color:#a6adc8;">{" (type here for input)"}</span>
+                                }
+                            </div>
+                            <div onkeydown={on_key} tabindex="0"
+                                style="background:#11111b; color:#a6e3a1; padding:8px; border-radius:4px; \
+                                       font-family:monospace; font-size:13px; white-space:pre-wrap; \
+                                       min-height:40px; max-height:200px; overflow:auto; \
+                                       outline:none; cursor:text; \
+                                       border:1px solid transparent;">
+                                { if uart_output.is_empty() && !*running && !*halted {
+                                    html! { <span style="color:#45475a;">{"(no output)"}</span> }
+                                } else {
+                                    html! { {&*uart_output} }
+                                }}
+                            </div>
+                        </div>
+
+                        // Registers
+                        <div>
+                            <div style="color:#6c7086; font-size:0.7rem; margin-bottom:4px;">{"Registers"}</div>
+                            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; \
+                                        font-family:monospace; font-size:12px;">
+                                { for (0..8).map(|i| {
+                                    html! {
+                                        <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
+                                                    display:flex; justify-content:space-between;">
+                                            <span style="color:#6c7086;">{REG_NAMES[i]}</span>
+                                            <span style="color:#89b4fa;">{format!("{:06x}", registers[i])}</span>
+                                        </div>
+                                    }
+                                }) }
+                                <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
+                                            display:flex; justify-content:space-between;">
+                                    <span style="color:#6c7086;">{"pc"}</span>
+                                    <span style="color:#cba6f7;">{format!("{:06x}", *pc_val)}</span>
+                                </div>
+                                <div style="background:#11111b; padding:2px 6px; border-radius:3px; \
+                                            display:flex; justify-content:space-between;">
+                                    <span style="color:#6c7086;">{"c"}</span>
+                                    <span style="color:#f9e2af;">{ if *cond_flag { "1" } else { "0" } }</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        // Hardware I/O: LED + Switch
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            // LED D2
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="color:#6c7086; font-size:0.7rem;">{"LED D2"}</span>
+                                <div style={format!("width:14px; height:14px; border-radius:50%; \
+                                    background:{}; border:1px solid #45475a;",
+                                    if *led_state & 1 == 0 { "#a6e3a1" } else { "#313244" }
+                                )} />
+                            </div>
+                            // Switch S2
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="color:#6c7086; font-size:0.7rem;">{"S2"}</span>
+                                <button onclick={on_switch_toggle}
+                                    style={format!("padding:2px 10px; border-radius:4px; font-size:0.7rem; \
+                                        cursor:pointer; border:1px solid #45475a; \
+                                        background:{}; color:{};",
+                                        if *switch_pressed { "#a6e3a1" } else { "#313244" },
+                                        if *switch_pressed { "#1e1e2e" } else { "#6c7086" },
+                                    )}>
+                                    { if *switch_pressed { "ON" } else { "OFF" } }
+                                </button>
+                            </div>
+                        </div>
+
+                        // Status bar
+                        <div style="display:flex; justify-content:space-between; align-items:center; \
+                                    font-size:0.7rem; color:#6c7086; border-top:1px solid #313244; \
+                                    padding-top:6px;">
+                            <span>{&*status_msg}</span>
+                            <span>{format!("{} instructions", *instr_count)}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            // Button bar
             <div style="display:flex; gap:12px; align-items:center;">
                 <button onclick={on_run}
                     style="padding:8px 24px; background:#89b4fa; color:#1e1e2e; \
                            border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer;">
                     {"Compile & Run"}
                 </button>
+
+                if *running {
+                    <button onclick={on_stop}
+                        style="padding:8px 24px; background:#f38ba8; color:#1e1e2e; \
+                               border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer;">
+                        {"Stop"}
+                    </button>
+                }
 
                 <select onchange={on_demo_select}
                     style="padding:6px 12px; background:#313244; color:#cdd6f4; border:1px solid #45475a; \
@@ -204,9 +502,7 @@ fn app() -> Html {
     }
 }
 
-fn render_listing(listing: &[cor24_emulator::AssembledLine], error_line: Option<usize>) -> Html {
-    use cor24_emulator::AssembledLine;
-
+fn render_listing(listing: &[AssembledLine], error_line: Option<usize>) -> Html {
     if listing.is_empty() {
         return html! {
             <pre style="flex:1; background:#181825; color:#f9e2af; border:1px solid #313244; \
@@ -217,7 +513,6 @@ fn render_listing(listing: &[cor24_emulator::AssembledLine], error_line: Option<
 
     fn format_listing_line(line: &AssembledLine) -> String {
         if line.bytes.is_empty() {
-            // Label-only or blank line — no address/hex
             format!("{:>22}{}", "", line.source)
         } else {
             let hex: String = line.bytes.iter().map(|b| format!("{b:02x} ")).collect();
@@ -247,7 +542,6 @@ fn render_listing(listing: &[cor24_emulator::AssembledLine], error_line: Option<
                     let is_err = error_line == Some(n);
                     let bg = if is_err { "background:rgba(243,139,168,0.15);" } else { "" };
                     let formatted = format_listing_line(line);
-                    // Color: address in blue, hex in green, source in yellow
                     if line.bytes.is_empty() {
                         html! { <div style={format!("color:#f9e2af;{bg}")}>{formatted}</div> }
                     } else {
@@ -268,82 +562,6 @@ fn render_listing(listing: &[cor24_emulator::AssembledLine], error_line: Option<
                 }) }
             </pre>
         </div>
-    }
-}
-
-fn render_output(result: Option<&compiler::CompileResult>) -> Html {
-    let Some(r) = result else {
-        return html! { <span style="color:#6c7086;">{"Click Compile & Run to see output"}</span> };
-    };
-
-    html! {
-        <>
-            // Error message (red) with source label
-            if let Some(err) = &r.error {
-                <div style="margin:0 0 8px;">
-                    <div style="color:#f38ba8; font-weight:600; font-size:0.8rem; margin-bottom:2px;">
-                        { match err.source {
-                            compiler::ErrorSource::C => "C error",
-                            compiler::ErrorSource::Assembler => "Assembler error",
-                            compiler::ErrorSource::Runtime => "Runtime error",
-                        }}
-                        if let Some(line) = err.line {
-                            {format!(" (line {line})")}
-                        }
-                    </div>
-                    <pre style="color:#f38ba8; margin:0; white-space:pre-wrap;">{&err.message}</pre>
-                </div>
-            }
-
-            // UART output
-            if !r.uart.is_empty() {
-                <div style="margin-bottom:8px;">
-                    <div style="color:#6c7086; font-size:0.75rem; margin-bottom:4px;">{"UART"}</div>
-                    <pre style="color:#a6e3a1; margin:0; background:#11111b; padding:8px; \
-                                border-radius:4px; white-space:pre-wrap;">{&r.uart}</pre>
-                </div>
-            }
-
-            // Status + execution info
-            if let Some(status) = &r.status {
-                <div style="color:#cdd6f4; font-size:0.8rem; margin-bottom:4px;">
-                    {status}
-                </div>
-            }
-
-            if let Some(instr) = r.instructions {
-                <div style="color:#6c7086; font-size:0.75rem; margin-bottom:4px;">
-                    {format!("{instr} instructions executed")}
-                </div>
-            }
-
-            // Registers
-            if let Some(regs) = &r.registers {
-                <div style="display:flex; gap:12px; margin-bottom:8px;">
-                    { for regs.iter().enumerate().map(|(i, &v)| html! {
-                        <div style="background:#11111b; padding:4px 8px; border-radius:4px;">
-                            <span style="color:#6c7086; font-size:0.7rem;">{format!("r{i}")}</span>
-                            <span style="color:#89b4fa; margin-left:4px;">{format!("{v:#x}")}</span>
-                        </div>
-                    }) }
-                </div>
-            }
-
-            // LED indicators
-            if let Some(leds) = r.leds {
-                <div style="display:flex; gap:4px; align-items:center;">
-                    <span style="color:#6c7086; font-size:0.7rem; margin-right:4px;">{"LEDs"}</span>
-                    { for (0..8).rev().map(|bit| {
-                        let on = (leds >> bit) & 1 != 0;
-                        let color = if on { "#a6e3a1" } else { "#313244" };
-                        html! {
-                            <div style={format!("width:12px; height:12px; border-radius:50%; \
-                                                  background:{color};")} />
-                        }
-                    }) }
-                </div>
-            }
-        </>
     }
 }
 
