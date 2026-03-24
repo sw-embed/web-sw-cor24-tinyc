@@ -1,6 +1,6 @@
 number = 2
 slug = "embed-tc24r"
-status = "pending"
+status = "in-progress"
 description = "Compile tc24r core to WASM, integrate into Yew app"
 role = "legacy"
 context_files = []

@@ -1,22 +1,31 @@
+mod compiler;
+
 use wasm_bindgen::JsCast;
 use web_sys::HtmlTextAreaElement;
 use yew::prelude::*;
 
-const DEFAULT_SOURCE: &str = r#"; COR24 assembly — hello world
-        .text
+const DEFAULT_SOURCE: &str = r#"// COR24 C — UART hello + LED
+void putc(int c) {
+    *(char *)0xFF0100 = c;
+}
 
-        .globl  _start
-_start:
-        lc      r0, 72          ; 'H'
-        la      r2, 0xFF0100    ; UART data
-        sw      r0, 0(r2)       ; transmit
-_halt:
-        bra     _halt
+void led_on() {
+    *(char *)0xFF0000 = 0;
+}
+
+int main() {
+    putc(72);   // H
+    putc(105);  // i
+    putc(33);   // !
+    led_on();
+    return 42;
+}
 "#;
 
 #[function_component(App)]
 fn app() -> Html {
     let source = use_state(|| DEFAULT_SOURCE.to_string());
+    let assembly = use_state(String::new);
     let output = use_state(String::new);
 
     let on_input = {
@@ -31,9 +40,13 @@ fn app() -> Html {
     };
 
     let on_run = {
+        let source = source.clone();
+        let assembly = assembly.clone();
         let output = output.clone();
         Callback::from(move |_: MouseEvent| {
-            output.set("Compiler not yet connected — coming soon.".to_string());
+            let result = compiler::compile_and_run(&source);
+            assembly.set(result.assembly);
+            output.set(result.output);
         })
     };
 
@@ -47,8 +60,9 @@ fn app() -> Html {
             </h1>
 
             <div style="display:flex; flex:1; gap:12px; min-height:0;">
+                // C source editor
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
-                    <label style="font-size:0.85rem; color:#a6adc8;">{"COR24 Assembly"}</label>
+                    <label style="font-size:0.85rem; color:#a6adc8;">{"C Source"}</label>
                     <textarea
                         value={(*source).clone()}
                         oninput={on_input}
@@ -59,6 +73,17 @@ fn app() -> Html {
                     />
                 </div>
 
+                // Generated assembly
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size:0.85rem; color:#a6adc8;">{"Generated Assembly"}</label>
+                    <pre style="flex:1; background:#181825; color:#f9e2af; border:1px solid #313244; \
+                                border-radius:6px; padding:12px; font-family:monospace; font-size:14px; \
+                                overflow:auto; white-space:pre-wrap;">
+                        {&*assembly}
+                    </pre>
+                </div>
+
+                // Execution output
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
                     <label style="font-size:0.85rem; color:#a6adc8;">{"Output"}</label>
                     <pre style="flex:1; background:#181825; color:#a6e3a1; border:1px solid #313244; \
@@ -72,7 +97,7 @@ fn app() -> Html {
             <button onclick={on_run}
                 style="align-self:flex-start; padding:8px 24px; background:#89b4fa; color:#1e1e2e; \
                        border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer;">
-                {"Run"}
+                {"Compile & Run"}
             </button>
         </main>
     }
