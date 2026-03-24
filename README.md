@@ -4,11 +4,20 @@ Web UI for the [Tiny COR24 in Rust](https://github.com/sw-vibe-coding/tc24r) com
 
 Compile, assemble, and run COR24 programs entirely in the browser.
 
+**[Live Demo](https://sw-vibe-coding.github.io/web-tc24r/)**
+
 ## Related
 
 - [tc24r](https://github.com/sw-vibe-coding/tc24r) -- The compiler
 - [cor24-rs](https://github.com/sw-embed/cor24-rs) -- COR24 assembler and emulator
 - [tml24c](https://github.com/sw-vibe-coding/tml24c) -- Tiny Macro Lisp for COR24
+
+## Development
+
+```bash
+./scripts/serve.sh                                    # dev server with hot reload on port 9101
+trunk build --release --public-url /web-tc24r/ -d pages  # production build to pages/
+```
 
 ## Status
 

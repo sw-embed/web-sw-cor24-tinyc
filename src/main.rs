@@ -44,6 +44,17 @@ fn app() -> Html {
         })
     };
 
+    // Extract error line for the appropriate panel.
+    let c_error_line = result.as_ref().and_then(|r| {
+        r.error.as_ref().filter(|e| e.source == compiler::ErrorSource::C).and_then(|e| e.line)
+    });
+    let asm_error_line = result.as_ref().and_then(|r| {
+        r.error.as_ref()
+            .filter(|e| e.source == compiler::ErrorSource::Assembler
+                     || e.source == compiler::ErrorSource::Runtime)
+            .and_then(|e| e.line)
+    });
+
     html! {
         <main style="display:flex; flex-direction:column; height:100vh; padding:16px; gap:12px;">
             <h1 style="font-size:1.4rem; color:#89b4fa;">
@@ -57,17 +68,14 @@ fn app() -> Html {
                 // C source editor
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
                     <label style="font-size:0.85rem; color:#a6adc8;">{"C Source"}</label>
-                    <Editor value={AttrValue::from((*source).clone())} on_change={on_source_change} />
+                    <Editor value={AttrValue::from((*source).clone())} on_change={on_source_change}
+                            error_line={c_error_line} />
                 </div>
 
                 // Generated assembly
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
-                    <label style="font-size:0.85rem; color:#a6adc8;">{"Generated Assembly"}</label>
-                    <pre style="flex:1; background:#181825; color:#f9e2af; border:1px solid #313244; \
-                                border-radius:6px; padding:12px; font-family:monospace; font-size:14px; \
-                                overflow:auto; white-space:pre-wrap;">
-                        { result.as_ref().map(|r| r.assembly.as_str()).unwrap_or("") }
-                    </pre>
+                    <label style="font-size:0.85rem; color:#a6adc8;">{"Listing"}</label>
+                    { render_listing(result.as_ref().map(|r| r.listing.as_slice()).unwrap_or(&[]), asm_error_line) }
                 </div>
 
                 // Execution output
@@ -90,6 +98,73 @@ fn app() -> Html {
     }
 }
 
+fn render_listing(listing: &[cor24_emulator::AssembledLine], error_line: Option<usize>) -> Html {
+    use cor24_emulator::AssembledLine;
+
+    if listing.is_empty() {
+        return html! {
+            <pre style="flex:1; background:#181825; color:#f9e2af; border:1px solid #313244; \
+                        border-radius:6px; padding:12px; font-family:monospace; font-size:14px; \
+                        overflow:auto; white-space:pre;" />
+        };
+    }
+
+    fn format_listing_line(line: &AssembledLine) -> String {
+        if line.bytes.is_empty() {
+            // Label-only or blank line — no address/hex
+            format!("{:>22}{}", "", line.source)
+        } else {
+            let hex: String = line.bytes.iter().map(|b| format!("{b:02x} ")).collect();
+            format!("{:06x}  {:<14}{}", line.address, hex.trim_end(), line.source)
+        }
+    }
+
+    let width = listing.len().to_string().len();
+
+    html! {
+        <div style="flex:1; display:flex; background:#181825; border:1px solid #313244; \
+                    border-radius:6px; overflow:auto; font-family:monospace; font-size:13px; \
+                    line-height:1.5;">
+            <pre style="margin:0; padding:12px 8px 12px 0; text-align:right; color:#6c7086; \
+                        user-select:none; background:#11111b; border-right:1px solid #313244; \
+                        white-space:pre;">
+                { for listing.iter().enumerate().map(|(i, _)| {
+                    let n = i + 1;
+                    let is_err = error_line == Some(n);
+                    let style = if is_err { "color:#f38ba8; background:rgba(243,139,168,0.15);" } else { "" };
+                    html! { <span {style}>{format!("{:>width$}\n", n)}</span> }
+                }) }
+            </pre>
+            <pre style="margin:0; padding:12px; white-space:pre; flex:1;">
+                { for listing.iter().enumerate().map(|(i, line)| {
+                    let n = i + 1;
+                    let is_err = error_line == Some(n);
+                    let bg = if is_err { "background:rgba(243,139,168,0.15);" } else { "" };
+                    let formatted = format_listing_line(line);
+                    // Color: address in blue, hex in green, source in yellow
+                    if line.bytes.is_empty() {
+                        html! { <div style={format!("color:#f9e2af;{bg}")}>{formatted}</div> }
+                    } else {
+                        let addr_end = 6;
+                        let hex_start = 8;
+                        let hex_end = hex_start + 14;
+                        html! {
+                            <div style={bg.to_string()}>
+                                <span style="color:#6c7086;">{&formatted[..addr_end]}</span>
+                                <span style="color:#6c7086;">{&formatted[addr_end..hex_start]}</span>
+                                <span style="color:#a6e3a1;">{&formatted[hex_start..hex_end.min(formatted.len())]}</span>
+                                if formatted.len() > hex_end {
+                                    <span style="color:#f9e2af;">{&formatted[hex_end..]}</span>
+                                }
+                            </div>
+                        }
+                    }
+                }) }
+            </pre>
+        </div>
+    }
+}
+
 fn render_output(result: Option<&compiler::CompileResult>) -> Html {
     let Some(r) = result else {
         return html! { <span style="color:#6c7086;">{"Click Compile & Run to see output"}</span> };
@@ -97,9 +172,21 @@ fn render_output(result: Option<&compiler::CompileResult>) -> Html {
 
     html! {
         <>
-            // Error message (red)
+            // Error message (red) with source label
             if let Some(err) = &r.error {
-                <pre style="color:#f38ba8; margin:0 0 8px; white-space:pre-wrap;">{err}</pre>
+                <div style="margin:0 0 8px;">
+                    <div style="color:#f38ba8; font-weight:600; font-size:0.8rem; margin-bottom:2px;">
+                        { match err.source {
+                            compiler::ErrorSource::C => "C error",
+                            compiler::ErrorSource::Assembler => "Assembler error",
+                            compiler::ErrorSource::Runtime => "Runtime error",
+                        }}
+                        if let Some(line) = err.line {
+                            {format!(" (line {line})")}
+                        }
+                    </div>
+                    <pre style="color:#f38ba8; margin:0; white-space:pre-wrap;">{&err.message}</pre>
+                </div>
             }
 
             // UART output

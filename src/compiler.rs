@@ -1,11 +1,25 @@
 //! Compile-and-run pipeline: C source → COR24 assembly → machine code → execution.
 
-use cor24_emulator::{Assembler, EmulatorCore};
+use cor24_emulator::{AssembledLine, Assembler, EmulatorCore};
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum ErrorSource {
+    C,
+    Assembler,
+    Runtime,
+}
+
+pub struct CompileError {
+    pub message: String,
+    pub source: ErrorSource,
+    /// 1-based line number in the relevant source (C or assembly).
+    pub line: Option<usize>,
+}
 
 pub struct CompileResult {
-    pub assembly: String,
+    pub listing: Vec<AssembledLine>,
     pub uart: String,
-    pub error: Option<String>,
+    pub error: Option<CompileError>,
     pub status: Option<String>,
     pub instructions: Option<u64>,
     pub registers: Option<[u32; 3]>,
@@ -17,12 +31,19 @@ fn offset_to_line(source: &str, offset: usize) -> usize {
     source[..offset.min(source.len())].bytes().filter(|&b| b == b'\n').count() + 1
 }
 
-/// Format a CompileError with line number if span is available.
-fn format_error(stage: &str, source: &str, message: &str, span: Option<&tc24r_span::Span>) -> String {
-    match span {
-        Some(s) => format!("{stage} error (line {}): {message}", offset_to_line(source, s.offset)),
-        None => format!("{stage} error: {message}"),
+
+/// Find the 1-based listing line whose address range contains the given PC.
+fn pc_to_listing_line(listing: &[AssembledLine], pc: u32) -> Option<usize> {
+    for (i, line) in listing.iter().enumerate() {
+        if !line.bytes.is_empty() {
+            let start = line.address;
+            let end = start + line.bytes.len() as u32;
+            if pc >= start && pc < end {
+                return Some(i + 1);
+            }
+        }
     }
+    None
 }
 
 /// Compile C source to COR24 assembly, assemble, and run.
@@ -30,10 +51,10 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     // Stage 1: Preprocess (no includes in browser)
     let preprocessed = tc24r_preprocess::preprocess(source, None, &[]);
 
-    let err = |msg: String| CompileResult {
-        assembly: String::new(),
+    let c_err = |msg: String, line: Option<usize>| CompileResult {
+        listing: Vec::new(),
         uart: String::new(),
-        error: Some(msg),
+        error: Some(CompileError { message: msg, source: ErrorSource::C, line }),
         status: None,
         instructions: None,
         registers: None,
@@ -44,7 +65,8 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     let tokens = match tc24r_lexer::Lexer::new(&preprocessed).tokenize() {
         Ok(t) => t,
         Err(e) => {
-            return err(format_error("Lexer", &preprocessed, &e.message, e.span.as_ref()));
+            let line = e.span.as_ref().map(|s| offset_to_line(&preprocessed, s.offset));
+            return c_err(e.message.clone(), line);
         }
     };
 
@@ -52,7 +74,8 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     let program = match tc24r_parser::parse(tokens) {
         Ok(p) => p,
         Err(e) => {
-            return err(format_error("Parser", &preprocessed, &e.message, e.span.as_ref()));
+            let line = e.span.as_ref().map(|s| offset_to_line(&preprocessed, s.offset));
+            return c_err(e.message.clone(), line);
         }
     };
 
@@ -64,16 +87,28 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     let result = assembler.assemble(&assembly);
 
     if !result.errors.is_empty() {
+        // Try to extract a line number from "Line N:" pattern in the first error.
+        let line = result.errors.first().and_then(|e| {
+            e.strip_prefix("Line ")
+                .and_then(|rest| rest.split(':').next())
+                .and_then(|n| n.trim().parse::<usize>().ok())
+        });
         return CompileResult {
-            assembly: assembly.clone(),
+            listing: result.lines,
             uart: String::new(),
-            error: Some(format!("Assembler errors:\n{}", result.errors.join("\n"))),
+            error: Some(CompileError {
+                message: result.errors.join("\n"),
+                source: ErrorSource::Assembler,
+                line,
+            }),
             status: None,
             instructions: None,
             registers: None,
             leds: None,
         };
     }
+
+    let listing = result.lines;
 
     // Stage 6: Execute
     let mut emu = EmulatorCore::new();
@@ -84,17 +119,27 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     let batch = emu.run_batch(100_000);
 
     let uart = emu.get_uart_output().to_string();
+    let pc = emu.pc();
 
-    let (status, error) = match batch.reason {
+    // Map PC to 1-based listing line number.
+    let pc_line = pc_to_listing_line(&listing, pc);
+
+    let runtime_err = |msg: String| Some(CompileError {
+        message: msg,
+        source: ErrorSource::Runtime,
+        line: pc_line,
+    });
+
+    let (status, error): (Option<String>, Option<CompileError>) = match batch.reason {
         cor24_emulator::StopReason::Halted => (Some("Halted".into()), None),
         cor24_emulator::StopReason::CycleLimit => {
-            (None, Some("Instruction limit reached (100k)".into()))
+            (None, runtime_err(format!("Instruction limit reached (100k) at PC={pc:#06x}")))
         }
         cor24_emulator::StopReason::Breakpoint(addr) => {
             (Some(format!("Breakpoint at {addr:#06x}")), None)
         }
         cor24_emulator::StopReason::InvalidInstruction(op) => {
-            (None, Some(format!("Invalid instruction: {op:#04x}")))
+            (None, runtime_err(format!("Invalid instruction: {op:#04x} at PC={pc:#06x}")))
         }
         cor24_emulator::StopReason::Paused => (Some("Paused".into()), None),
     };
@@ -102,7 +147,7 @@ pub fn compile_and_run(source: &str) -> CompileResult {
     let leds = emu.get_led();
 
     CompileResult {
-        assembly,
+        listing,
         uart,
         error,
         status,
