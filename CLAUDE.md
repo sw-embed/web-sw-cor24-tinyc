@@ -25,18 +25,23 @@ Commit your code changes with git.
 
 ### 5. COMPLETE (LAST thing, after committing)
 ```bash
-agentrail complete --summary "what you accomplished" \
-  --reward 1 \
+agentrail complete --summary "what you accomplished" \\
+  --reward 1 \\
   --actions "tools and approach used"
 ```
 If the step failed: `--reward -1 --failure-mode "what went wrong"`
 If the saga is finished: add `--done`
 
-Do NOT skip steps 1, 2, or 5. The next session depends on your trajectory recording.
+### 6. STOP (after complete, DO NOT continue working)
+Do NOT make any further code changes after running agentrail complete.
+Any changes after complete are untracked and invisible to the next session.
+If you see more work to do, it belongs in the NEXT step, not this session.
+
+Do NOT skip any of these steps. The next session depends on your trajectory recording.
 
 ## Project
 
-Web UI for the tc24r compiler. Live browser demos of COR24 compilation using Rust, Yew, and WebAssembly. Users write COR24 assembly, compile, and run it entirely in the browser.
+Web UI for the tc24r compiler. Live browser demos of COR24 compilation using Rust, Yew, and WebAssembly.
 
 ## Related Projects
 
