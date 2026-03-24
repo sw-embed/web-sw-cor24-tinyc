@@ -1,6 +1,7 @@
 /target
 /dist
 *.wasm
+!pages/*.wasm
 .DS_Store
 
 
