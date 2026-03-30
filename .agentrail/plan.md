@@ -1,1 +1,0 @@
-Build a browser-based UI for the tc24r compiler using Rust/Yew/WASM. Phase 1: scaffold Yew project, embed tc24r as WASM. Phase 2: editor component with syntax highlighting. Phase 3: compile-and-run workflow in browser.

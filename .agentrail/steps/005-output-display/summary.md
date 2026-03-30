@@ -1,1 +1,0 @@
-Restructured output display from flat text to structured CompileResult with separate fields: uart, error, status, instructions, registers, leds. UI now shows UART output in a green box, errors in red, registers as individual badges with hex values, and LED state as visual dot indicators. Placeholder text shown before first compile. All 5 saga steps complete.

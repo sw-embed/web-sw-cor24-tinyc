@@ -265,7 +265,7 @@ const DEMOS: &[(&str, &str)] = &[
     ("demo49.c", "parenthesized ptr arithmetic + arrow (BUG-012)"),
 ];
 
-const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-vibe-coding/tc24r/main/demos/";
+const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-embed/sw-cor24-tinyc/main/demos/";
 
 const REG_NAMES: [&str; 8] = ["r0", "r1", "r2", "fp", "sp", "z", "iv", "ir"];
 
@@ -574,7 +574,7 @@ fn app() -> Html {
     html! {
         <main style="display:flex; flex-direction:column; height:100vh; padding:16px; gap:12px;">
             // GitHub corner
-            <a href="https://github.com/sw-vibe-coding/web-tc24r" aria-label="View source on GitHub"
+            <a href="https://github.com/sw-embed/web-sw-cor24-tinyc" aria-label="View source on GitHub"
                 target="_blank" style="position:absolute; top:0; right:0; z-index:100;">
                 <svg width="80" height="80" viewBox="0 0 250 250"
                     style="fill:#89b4fa; color:#1e1e2e;" aria-hidden="true">
@@ -595,7 +595,7 @@ fn app() -> Html {
             </a>
 
             <h1 style="font-size:1.4rem; color:#89b4fa;">
-                {"web-tc24r"}
+                {"web-sw-cor24-tinyc"}
                 <span style="font-size:0.8rem; color:#bac2de; margin-left:8px;">
                     {"COR24 compiler in your browser"}
                 </span>

@@ -1,29 +1,27 @@
-# web-tc24r
+# web-sw-cor24-tinyc
 
-Web UI for the [Tiny COR24 in Rust](https://github.com/sw-vibe-coding/tc24r) compiler. Live browser demos using Rust, Yew, and WebAssembly.
+Web UI for the [sw-cor24-tinyc](https://github.com/sw-embed/sw-cor24-tinyc) Tiny C compiler. Compile, assemble, and run COR24 programs entirely in the browser using Rust, Yew, and WebAssembly.
 
-Compile, assemble, and run COR24 programs entirely in the browser.
+**[Live Demo](https://sw-embed.github.io/web-sw-cor24-tinyc/)**
 
-**[Live Demo](https://sw-vibe-coding.github.io/web-tc24r/)**
-
-![web-tc24r screenshot](images/screenshot.png?ts=1774325700787)
+![screenshot](images/screenshot.png)
 
 ## Related
 
-- [tc24r](https://github.com/sw-vibe-coding/tc24r) -- The compiler
-- [cor24-rs](https://github.com/sw-embed/cor24-rs) -- COR24 assembler and emulator
-- [tml24c](https://github.com/sw-vibe-coding/tml24c) -- Tiny Macro Lisp for COR24
+- [sw-cor24-tinyc](https://github.com/sw-embed/sw-cor24-tinyc) — Tiny C compiler for COR24
+- [sw-cor24-emulator](https://github.com/sw-embed/sw-cor24-emulator) — COR24 assembler and emulator
+- [sw-cor24-project](https://github.com/sw-embed/sw-cor24-project) — COR24 ecosystem hub
 
 ## Development
 
 ```bash
-./scripts/serve.sh                                    # dev server with hot reload on port 9101
-trunk build --release --public-url /web-tc24r/ -d pages  # production build to pages/
+./scripts/serve.sh              # dev server with hot reload on port 9101
+./scripts/build-pages.sh        # production build to pages/
 ```
 
-## Status
+## Provenance
 
-Project scaffolding. Development managed by [AgentRail](https://github.com/sw-vibe-coding/agentrail-rs).
+Forked from [sw-vibe-coding/web-tc24r](https://github.com/sw-vibe-coding/web-tc24r) as part of the COR24 ecosystem consolidation under the sw-embed organization.
 
 ## License
 
