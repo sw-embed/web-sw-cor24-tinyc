@@ -265,7 +265,7 @@ const DEMOS: &[(&str, &str)] = &[
     ("demo49.c", "parenthesized ptr arithmetic + arrow (BUG-012)"),
 ];
 
-const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-embed/sw-cor24-tinyc/main/demos/";
+const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-embed/sw-cor24-x-tinyc/main/demos/";
 
 const REG_NAMES: [&str; 8] = ["r0", "r1", "r2", "fp", "sp", "z", "iv", "ir"];
 

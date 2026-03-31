@@ -49,11 +49,11 @@ pub fn pc_to_listing_line(listing: &[AssembledLine], pc: u32) -> Option<usize> {
 
 /// Bundled tc24r freestanding headers for in-browser #include expansion.
 pub const HEADERS: &[(&str, &str)] = &[
-    ("stdio.h", include_str!("../../sw-cor24-tinyc/include/stdio.h")),
-    ("stdlib.h", include_str!("../../sw-cor24-tinyc/include/stdlib.h")),
-    ("string.h", include_str!("../../sw-cor24-tinyc/include/string.h")),
-    ("cor24.h", include_str!("../../sw-cor24-tinyc/include/cor24.h")),
-    ("stdbool.h", include_str!("../../sw-cor24-tinyc/include/stdbool.h")),
+    ("stdio.h", include_str!("../../sw-cor24-x-tinyc/include/stdio.h")),
+    ("stdlib.h", include_str!("../../sw-cor24-x-tinyc/include/stdlib.h")),
+    ("string.h", include_str!("../../sw-cor24-x-tinyc/include/string.h")),
+    ("cor24.h", include_str!("../../sw-cor24-x-tinyc/include/cor24.h")),
+    ("stdbool.h", include_str!("../../sw-cor24-x-tinyc/include/stdbool.h")),
 ];
 
 /// Source map entry: which file and local line number each expanded line came from.

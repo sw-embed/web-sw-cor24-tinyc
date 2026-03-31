@@ -12,11 +12,11 @@ gloo-timers = "0.3"
 web-sys = { version = "0.3", features = ["HtmlElement", "HtmlTextAreaElement", "HtmlSelectElement", "KeyboardEvent"] }
 
 # tc24r compiler pipeline (C → COR24 assembly)
-tc24r-span = { path = "../sw-cor24-tinyc/components/core/crates/tc24r-span" }
-tc24r-preprocess = { path = "../sw-cor24-tinyc/components/frontend/crates/tc24r-preprocess" }
-tc24r-lexer = { path = "../sw-cor24-tinyc/components/frontend/crates/tc24r-lexer" }
-tc24r-parser = { path = "../sw-cor24-tinyc/components/frontend/crates/tc24r-parser" }
-tc24r-codegen = { path = "../sw-cor24-tinyc/components/backend/crates/tc24r-codegen" }
+tc24r-span = { path = "../sw-cor24-x-tinyc/components/core/crates/tc24r-span" }
+tc24r-preprocess = { path = "../sw-cor24-x-tinyc/components/frontend/crates/tc24r-preprocess" }
+tc24r-lexer = { path = "../sw-cor24-x-tinyc/components/frontend/crates/tc24r-lexer" }
+tc24r-parser = { path = "../sw-cor24-x-tinyc/components/frontend/crates/tc24r-parser" }
+tc24r-codegen = { path = "../sw-cor24-x-tinyc/components/backend/crates/tc24r-codegen" }
 
 # cor24 assembler + emulator (assembly → machine code → execution)
 cor24-emulator = { path = "../sw-cor24-emulator", default-features = false }

@@ -1,14 +1,14 @@
-# web-sw-cor24-tinyc
+# web-sw-cor24-x-tinyc
 
-Web UI for the [sw-cor24-tinyc](https://github.com/sw-embed/sw-cor24-tinyc) Tiny C compiler. Compile, assemble, and run COR24 programs entirely in the browser using Rust, Yew, and WebAssembly.
+Web UI for the [sw-cor24-x-tinyc](https://github.com/sw-embed/sw-cor24-x-tinyc) Tiny C compiler. Compile, assemble, and run COR24 programs entirely in the browser using Rust, Yew, and WebAssembly.
 
-**[Live Demo](https://sw-embed.github.io/web-sw-cor24-tinyc/)**
+**[Live Demo](https://sw-embed.github.io/web-sw-cor24-x-tinyc/)**
 
 ![screenshot](images/screenshot.png)
 
 ## Related
 
-- [sw-cor24-tinyc](https://github.com/sw-embed/sw-cor24-tinyc) — Tiny C compiler for COR24
+- [sw-cor24-x-tinyc](https://github.com/sw-embed/sw-cor24-x-tinyc) — Tiny C compiler for COR24
 - [sw-cor24-emulator](https://github.com/sw-embed/sw-cor24-emulator) — COR24 assembler and emulator
 - [sw-cor24-project](https://github.com/sw-embed/sw-cor24-project) — COR24 ecosystem hub
 
