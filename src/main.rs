@@ -263,6 +263,10 @@ const DEMOS: &[(&str, &str)] = &[
     ("demo47.c", "struct pointer array indexing (BUG-010)"),
     ("demo48.c", "global struct array (BUG-011)"),
     ("demo49.c", "parenthesized ptr arithmetic + arrow (BUG-012)"),
+    ("demo50.c", "large local array + nested calls (BUG-013)"),
+    ("demo51.c", "function pointer: basic variable call"),
+    ("demo52.c", "function pointer: array dispatch table"),
+    ("demo53.c", "function pointer: passed as parameter"),
 ];
 
 const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-embed/sw-cor24-x-tinyc/main/demos/";
