@@ -267,6 +267,8 @@ const DEMOS: &[(&str, &str)] = &[
     ("demo51.c", "function pointer: basic variable call"),
     ("demo52.c", "function pointer: array dispatch table"),
     ("demo53.c", "function pointer: passed as parameter"),
+    ("demo54.c", "global function pointer declaration"),
+    ("demo55.c", "constant expression in array size"),
 ];
 
 const RAW_BASE: &str = "https://raw.githubusercontent.com/sw-embed/sw-cor24-x-tinyc/main/demos/";
