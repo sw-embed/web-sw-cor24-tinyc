@@ -804,11 +804,20 @@ fn app() -> Html {
                 <a href="https://makerlisp.com" target="_blank"
                     style="color:#89b4fa; text-decoration:none;">{"COR24-TB"}</a>
                 <span>{"\u{00b7}"}</span>
-                <span>{env!("BUILD_SHA")}</span>
+                <a href="https://software-wrighter-lab.github.io/" target="_blank"
+                    style="color:#89b4fa; text-decoration:none;">{"Blog"}</a>
                 <span>{"\u{00b7}"}</span>
-                <span>{env!("BUILD_HOST")}</span>
+                <a href="https://discord.com/invite/Ctzk5uHggZ" target="_blank"
+                    style="color:#89b4fa; text-decoration:none;">{"Discord"}</a>
                 <span>{"\u{00b7}"}</span>
-                <span>{env!("BUILD_TIMESTAMP")}</span>
+                <a href="https://www.youtube.com/@SoftwareWrighter" target="_blank"
+                    style="color:#89b4fa; text-decoration:none;">{"YouTube"}</a>
+                <span>{"\u{00b7}"}</span>
+                <span>{ format!("{} \u{00b7} {} \u{00b7} {}",
+                    env!("BUILD_HOST"),
+                    env!("BUILD_SHA"),
+                    env!("BUILD_TIMESTAMP"),
+                ) }</span>
             </div>
         </main>
     }

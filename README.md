@@ -4,6 +4,8 @@ Web UI for the [sw-cor24-x-tinyc](https://github.com/sw-embed/sw-cor24-x-tinyc) 
 
 **[Live Demo](https://sw-embed.github.io/web-sw-cor24-tinyc/)**
 
+Part of the [Software Wrighter COR24 Tools Project](https://sw-embed.github.io/web-sw-cor24-demos/#/).
+
 ![screenshot](images/screenshot.png)
 
 ## Related
@@ -22,6 +24,16 @@ Web UI for the [sw-cor24-x-tinyc](https://github.com/sw-embed/sw-cor24-x-tinyc) 
 ## Provenance
 
 Forked from [sw-vibe-coding/web-tc24r](https://github.com/sw-vibe-coding/web-tc24r) as part of the COR24 ecosystem consolidation under the sw-embed organization.
+
+## Links
+
+- Blog: [Software Wrighter Lab](https://software-wrighter-lab.github.io/)
+- Discord: [Join the community](https://discord.com/invite/Ctzk5uHggZ)
+- YouTube: [Software Wrighter](https://www.youtube.com/@SoftwareWrighter)
+
+## Copyright
+
+Copyright (c) 2026 Michael A. Wright
 
 ## License
 
